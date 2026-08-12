@@ -19,7 +19,7 @@ interface StepTwoProps {
   setScopeField: (
     roomId: string,
     itemIndex: number,
-    field: "category" | "description" | "quantity" | "unit" | "cost",
+    field: "category" | "description" | "quantity" | "unit" | "unit_cost",
     value: any
   ) => void;
 }
@@ -50,8 +50,11 @@ export default function StepTwo({
                   Qty
                 </TableHead>
                 <TableHead className="w-[90px]">Unit</TableHead>
+                <TableHead className="w-[100px] text-right">
+                  Unit Cost (S$)
+                </TableHead>
                 <TableHead className="w-[120px] text-right">
-                  Cost ($)
+                  Total Cost (S$)
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -61,7 +64,7 @@ export default function StepTwo({
                   {/* room group header */}
                   <TableRow className="bg-stone-100/80 hover:bg-stone-100/80">
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="font-semibold text-sm text-stone-600 py-2"
                     >
                       {room.name}
@@ -104,23 +107,38 @@ export default function StepTwo({
                             className="h-8 w-16 text-center text-sm border border-stone-200 bg-white mx-auto"
                           />
                         </TableCell>
-                        <TableCell className="text-sm text-stone-500">
-                          {item.unit}
-                        </TableCell>
                         <TableCell>
                           <Input
-                            type="number"
-                            value={item.cost}
+                            type="text"
+                            value={item.unit}
                             onChange={(e) =>
                               setScopeField(
                                 room.id,
                                 idx,
-                                "cost",
+                                "unit",
                                 e.target.value
                               )
                             }
-                            className="h-8 w-24 text-right text-sm border border-stone-200 bg-white ml-auto"
+                            className="h-8 w-20 text-sm border border-stone-200 bg-white"
                           />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            value={item.unit_cost}
+                            onChange={(e) =>
+                              setScopeField(
+                                room.id,
+                                idx,
+                                "unit_cost",
+                                e.target.value
+                              )
+                            }
+                            className="h-8 w-20 text-right text-sm border border-stone-200 bg-white ml-auto"
+                          />
+                        </TableCell>
+                        <TableCell className="text-right text-sm text-stone-700 font-medium">
+                          S${item.total_cost.toLocaleString()}
                         </TableCell>
                       </TableRow>
                     )
@@ -131,13 +149,13 @@ export default function StepTwo({
               {/* grand total row */}
               <TableRow className="border-t-2 border-stone-300 hover:bg-transparent">
                 <TableCell
-                  colSpan={4}
+                  colSpan={5}
                   className="text-right font-semibold text-sm text-stone-600"
                 >
                   Grand Total
                 </TableCell>
                 <TableCell className="text-right font-bold text-base text-stone-900">
-                  ${grandTotal.toLocaleString()}
+                  S${grandTotal.toLocaleString()}
                 </TableCell>
               </TableRow>
             </TableBody>

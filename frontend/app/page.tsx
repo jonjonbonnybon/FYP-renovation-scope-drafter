@@ -1,6 +1,10 @@
-"use client";
+// Next.js App Router main entry page.
+// References:
+// - Next.js App Router Docs: https://nextjs.org/docs
+// - Tailwind CSS styling: https://tailwindcss.com/docs
+// - Shadcn UI Components: https://ui.shadcn.com/docs
 
-/* eslint-disable @next/next/no-img-element, jsx-a11y/media-has-caption */
+"use client";
 
 import { useState, useRef } from "react";
 
@@ -17,7 +21,8 @@ export interface ScopeItem {
   description: string;
   quantity: number;
   unit: string;
-  cost: number;
+  unit_cost: number;
+  total_cost: number;
 }
 
 export interface ApiResult {
@@ -30,12 +35,14 @@ export interface ApiResult {
 export interface Room {
   id: string;
   name: string;
-  imageFile: File | null;
-  audioFile: File | null;
-  imagePreview: string | null;
-  audioUrl: string | null;
+  imageFiles: File[];
+  audioFiles: File[];
+  imagePreviews: string[];
+  audioUrls: string[];
   editableResult: ApiResult | null;
-  loading: boolean;
+  loadingVision: boolean;
+  loadingAudio: boolean;
+  loadingDraft: boolean;
 }
 
 // ── helpers ───────────────────────────────────────
@@ -49,9 +56,14 @@ function patchRow(
 ): ScopeItem[] {
   return rows.map((r, i) => {
     if (i !== idx) return r;
-    if (field === "quantity" || field === "cost")
-      return { ...r, [field]: Number(value) || 0 };
-    return { ...r, [field]: value };
+    const newRow = { ...r };
+    if (field === "quantity" || field === "unit_cost") {
+      newRow[field] = Number(value) || 0;
+      newRow.total_cost = newRow.quantity * newRow.unit_cost;
+    } else {
+      (newRow as any)[field] = value;
+    }
+    return newRow;
   });
 }
 
@@ -72,7 +84,7 @@ export default function Home() {
   const grandTotal = doneRooms.reduce(
     (s, r) =>
       s +
-      (r.editableResult?.scope_of_work.reduce((a, item) => a + item.cost, 0) ??
+      (r.editableResult?.scope_of_work.reduce((a, item) => a + item.total_cost, 0) ??
         0),
     0
   );
@@ -84,12 +96,14 @@ export default function Home() {
     const room: Room = {
       id: crypto.randomUUID(),
       name: `Room ${roomCount.current}`,
-      imageFile: null,
-      audioFile: null,
-      imagePreview: null,
-      audioUrl: null,
+      imageFiles: [],
+      audioFiles: [],
+      imagePreviews: [],
+      audioUrls: [],
       editableResult: null,
-      loading: false,
+      loadingVision: false,
+      loadingAudio: false,
+      loadingDraft: false,
     };
     setRooms((prev) => [...prev, room]);
     setActiveRoomId(room.id);
@@ -107,12 +121,8 @@ export default function Home() {
       return;
     }
 
-    if (roomToDelete.imagePreview) {
-      URL.revokeObjectURL(roomToDelete.imagePreview);
-    }
-    if (roomToDelete.audioUrl) {
-      URL.revokeObjectURL(roomToDelete.audioUrl);
-    }
+    roomToDelete.imagePreviews.forEach(p => URL.revokeObjectURL(p));
+    roomToDelete.audioUrls.forEach(u => URL.revokeObjectURL(u));
 
     setRooms((prev) => {
       const next = prev.filter((r) => r.id !== id);
@@ -129,57 +139,164 @@ export default function Home() {
 
   // ── file pickers (wired to hidden inputs) ──────
 
-  const onImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f || !activeRoomId) return;
-    patchRoom(activeRoomId, {
-      imageFile: f,
-      imagePreview: URL.createObjectURL(f),
-    });
-    e.target.value = ""; // lets user re-pick same file
+  const onImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0 || !activeRoomId) return;
+
+    const newFiles: File[] = [];
+    const newPreviews: string[] = [];
+
+    for (const file of files) {
+      newFiles.push(file);
+      if (file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif')) {
+        try {
+          const fd = new FormData();
+          fd.append("file", file);
+          const res = await fetch("http://localhost:8000/api/convert-heic", {
+            method: "POST",
+            body: fd
+          });
+          if (!res.ok) throw new Error("Conversion failed");
+          const blob = await res.blob();
+          newPreviews.push(URL.createObjectURL(blob));
+        } catch (err) {
+          console.error("HEIC conversion failed for preview:", err);
+          newPreviews.push(URL.createObjectURL(file)); 
+        }
+      } else {
+        newPreviews.push(URL.createObjectURL(file));
+      }
+    }
+
+    setRooms(prev => prev.map(r => {
+      if (r.id !== activeRoomId) return r;
+      return {
+        ...r,
+        imageFiles: [...r.imageFiles, ...newFiles],
+        imagePreviews: [...r.imagePreviews, ...newPreviews]
+      };
+    }));
+    e.target.value = "";
   };
 
   const onAudioPick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f || !activeRoomId) return;
-    patchRoom(activeRoomId, {
-      audioFile: f,
-      audioUrl: URL.createObjectURL(f),
-    });
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0 || !activeRoomId) return;
+
+    setRooms(prev => prev.map(r => {
+      if (r.id !== activeRoomId) return r;
+      return {
+        ...r,
+        audioFiles: [...r.audioFiles, ...files],
+        audioUrls: [...r.audioUrls, ...files.map(f => URL.createObjectURL(f))]
+      };
+    }));
     e.target.value = "";
+  };
+
+  const addAudioFile = (rid: string, file: File) => {
+    setRooms(prev => prev.map(r => {
+      if (r.id !== rid) return r;
+      return {
+        ...r,
+        audioFiles: [...r.audioFiles, file],
+        audioUrls: [...r.audioUrls, URL.createObjectURL(file)]
+      };
+    }));
+  };
+
+  const removeImage = (rid: string, index: number) => {
+    setRooms(prev => prev.map(r => {
+      if (r.id !== rid) return r;
+      const updatedFiles = [...r.imageFiles];
+      const updatedPreviews = [...r.imagePreviews];
+      URL.revokeObjectURL(updatedPreviews[index]);
+      updatedFiles.splice(index, 1);
+      updatedPreviews.splice(index, 1);
+      return { ...r, imageFiles: updatedFiles, imagePreviews: updatedPreviews };
+    }));
+  };
+
+  const removeAudio = (rid: string, index: number) => {
+    setRooms(prev => prev.map(r => {
+      if (r.id !== rid) return r;
+      const updatedFiles = [...r.audioFiles];
+      const updatedUrls = [...r.audioUrls];
+      URL.revokeObjectURL(updatedUrls[index]);
+      updatedFiles.splice(index, 1);
+      updatedUrls.splice(index, 1);
+      return { ...r, audioFiles: updatedFiles, audioUrls: updatedUrls };
+    }));
   };
 
   // ── api call ───────────────────────────────────
 
   const generate = async () => {
     if (!activeRoom) return;
-    patchRoom(activeRoom.id, { loading: true });
+    patchRoom(activeRoom.id, {
+      loadingVision: true,
+      loadingAudio: true,
+      loadingDraft: true,
+      editableResult: null
+    });
 
     try {
-      const fd = new FormData();
-      fd.append(
-        "image",
-        activeRoom.imageFile ?? new Blob(["x"], { type: "image/png" }),
-        "photo.png"
-      );
-      fd.append(
-        "audio",
-        activeRoom.audioFile ?? new Blob(["x"], { type: "audio/wav" }),
-        "rec.wav"
-      );
+      // 1. Vision Analysis
+      const imgFd = new FormData();
+      if (activeRoom.imageFiles.length === 0) {
+        imgFd.append("images", new Blob(["x"], { type: "image/png" }), "photo.png");
+      } else {
+        activeRoom.imageFiles.forEach(f => imgFd.append("images", f, f.name));
+      }
 
-      const res = await fetch("http://localhost:8000/api/generate-scope", {
+      const visionRes = await fetch("http://localhost:8000/api/analyze-vision", {
         method: "POST",
-        body: fd,
+        body: imgFd,
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!visionRes.ok) throw new Error(`Vision HTTP ${visionRes.status}`);
+      const visionData = await visionRes.json();
+      patchRoom(activeRoom.id, { loadingVision: false });
 
-      const data: ApiResult = await res.json();
-      patchRoom(activeRoom.id, { editableResult: data, loading: false });
+      // 2. Audio Transcription
+      const audFd = new FormData();
+      if (activeRoom.audioFiles.length === 0) {
+        audFd.append("audios", new Blob(["x"], { type: "audio/wav" }), "rec.wav");
+      } else {
+        activeRoom.audioFiles.forEach(f => audFd.append("audios", f, f.name));
+      }
+
+      const audioRes = await fetch("http://localhost:8000/api/transcribe-audio", {
+        method: "POST",
+        body: audFd,
+      });
+      if (!audioRes.ok) throw new Error(`Audio HTTP ${audioRes.status}`);
+      const audioData = await audioRes.json();
+      patchRoom(activeRoom.id, { loadingAudio: false });
+
+      // 3. Synthesize Draft
+      const draftRes = await fetch("http://localhost:8000/api/synthesize-scope", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          raw_transcription: audioData.raw_transcription,
+          raw_vision: visionData.raw_vision,
+        }),
+      });
+      if (!draftRes.ok) throw new Error(`Draft HTTP ${draftRes.status}`);
+      const draftData = await draftRes.json();
+
+      const fullData: ApiResult = {
+        status: "success",
+        raw_transcription: audioData.raw_transcription,
+        raw_vision: visionData.raw_vision,
+        scope_of_work: draftData.scope_of_work
+      };
+
+      patchRoom(activeRoom.id, { editableResult: fullData, loadingDraft: false });
     } catch (err) {
       console.error(err);
-      alert("Cannot reach backend on port 8000 — is it running?");
-      patchRoom(activeRoom.id, { loading: false });
+      alert("Error occurred or cannot reach backend on port 8000.");
+      patchRoom(activeRoom.id, { loadingVision: false, loadingAudio: false, loadingDraft: false });
     }
   };
 
@@ -196,6 +313,22 @@ export default function Home() {
           : r
       )
     );
+
+  const appendTranscription = (rid: string, text: string) => {
+    setRooms((prev) =>
+      prev.map((r) =>
+        r.id === rid && r.editableResult
+          ? {
+            ...r,
+            editableResult: {
+              ...r.editableResult,
+              raw_transcription: r.editableResult.raw_transcription + (r.editableResult.raw_transcription ? "\n\n" : "") + text
+            }
+          }
+          : r
+      )
+    );
+  };
 
   const setVision = (rid: string, v: string) =>
     setRooms((prev) =>
@@ -233,13 +366,54 @@ export default function Home() {
 
   // ── export ─────────────────────────────────────
 
-  const exportPdf = () => {
-    const payload = doneRooms.map((r) => ({
-      room: r.name,
-      ...r.editableResult,
-    }));
-    console.log("Export payload:", payload);
-    alert("Payload logged to console — PDF generation goes here.");
+  const fetchPdfBlob = async () => {
+    const payload = {
+      rooms: doneRooms.map((r) => ({
+        room: r.name,
+        raw_transcription: r.editableResult?.raw_transcription,
+        raw_vision: r.editableResult?.raw_vision,
+        ...r.editableResult,
+      })),
+      grand_total: grandTotal,
+    };
+
+    const res = await fetch("http://localhost:8000/api/generate-pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+    return res.blob();
+  };
+
+  const exportPdf = async () => {
+    try {
+      const blob = await fetchPdfBlob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `renovation_scope_${Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("PDF export failed:", err);
+      alert("Failed to generate PDF. Make sure the backend is running.");
+    }
+  };
+
+  const previewPdf = async () => {
+    try {
+      const blob = await fetchPdfBlob();
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Intentionally not revoking the URL immediately so the new tab can load it
+    } catch (err) {
+      console.error("PDF preview failed:", err);
+      alert("Failed to generate PDF. Make sure the backend is running.");
+    }
   };
 
   // ─────────────────── RENDER ────────────────────
@@ -250,14 +424,16 @@ export default function Home() {
       <input
         ref={imgRef}
         type="file"
-        accept="image/*,.png,.jpg,.jpeg,.heic"
+        multiple
+        accept="image/*,.png,.jpg,.jpeg,.heic,.heif,.webp"
         className="hidden"
         onChange={onImagePick}
       />
       <input
         ref={audRef}
         type="file"
-        accept="audio/*,.wav,.mp3,.m4a"
+        multiple
+        accept="audio/*,.wav,.mp3,.m4a,.webm,.ogg,.flac,.mp4"
         className="hidden"
         onChange={onAudioPick}
       />
@@ -272,8 +448,8 @@ export default function Home() {
             Renovation Scope Drafter
           </h1>
           <p className="text-sm text-stone-500 mt-2 max-w-sm text-center leading-relaxed">
-            Upload site photos and voice notes room by room. The models analyse
-            everything and draft a scope of work you can review before exporting.
+            Upload site photos and voice notes room by room. The system analyses
+            everything and drafts a scope of work you can review before exporting.
           </p>
           <Button size="lg" className="mt-8" onClick={addRoom}>
             + Add first room
@@ -301,15 +477,15 @@ export default function Home() {
                   key={room.id}
                   onClick={() => setActiveRoomId(room.id)}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${room.id === activeRoomId
-                      ? "bg-stone-800 text-white shadow-sm"
-                      : "bg-white text-stone-700 ring-1 ring-stone-200 hover:ring-stone-400"
+                    ? "bg-stone-800 text-white shadow-sm"
+                    : "bg-white text-stone-700 ring-1 ring-stone-200 hover:ring-stone-400"
                     }`}
                 >
                   {room.name}
-                  {room.loading && (
+                  {(room.loadingVision || room.loadingAudio || room.loadingDraft) && (
                     <span className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
                   )}
-                  {room.editableResult && !room.loading && (
+                  {room.editableResult && !(room.loadingVision || room.loadingAudio || room.loadingDraft) && (
                     <span className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   )}
                 </button>
@@ -331,10 +507,14 @@ export default function Home() {
                 patchRoom={patchRoom}
                 deleteRoom={deleteRoom}
                 setTranscription={setTranscription}
+                appendTranscription={appendTranscription}
                 setVision={setVision}
                 generate={generate}
                 imgRef={imgRef}
                 audRef={audRef}
+                addAudioFile={addAudioFile}
+                removeImage={removeImage}
+                removeAudio={removeAudio}
               />
             )}
 
@@ -351,6 +531,7 @@ export default function Home() {
                   doneRooms={doneRooms}
                   grandTotal={grandTotal}
                   exportPdf={exportPdf}
+                  previewPdf={previewPdf}
                 />
               </>
             )}

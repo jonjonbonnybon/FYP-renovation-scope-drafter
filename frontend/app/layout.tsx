@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Renovation Scope Drafter",
-  description: "AI-powered renovation scope of work generator",
+  description: "Renovation scope of work generator",
 };
 
 export default function RootLayout({
