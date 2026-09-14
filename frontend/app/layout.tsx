@@ -1,20 +1,33 @@
+// Root layout — sets up fonts and global meta.
+// next/font/google handles font subsetting + self-hosting automatically,
+// see: https://nextjs.org/docs/app/building-your-application/optimizing/fonts
+
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Outfit, Libre_Franklin } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-sans",
+// Outfit — geometric sans for headings
+// https://fonts.google.com/specimen/Outfit
+const outfit = Outfit({
+  variable: "--font-heading",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Libre Franklin — body text. 
+// https://fonts.google.com/specimen/Libre+Franklin
+const libreFranklin = Libre_Franklin({
+  variable: "--font-body",
   subsets: ["latin"],
+  display: "swap",
 });
 
+// metadata export for the <head> — Next.js handles this server-side
+// https://nextjs.org/docs/app/api-reference/functions/generate-metadata
 export const metadata: Metadata = {
-  title: "Renovation Scope Drafter",
-  description: "Renovation scope of work generator",
+  title: "Renovation Scope Drafter — Site Survey to Scope of Work",
+  description:
+    "Upload site photos and voice notes to automatically draft a renovation scope of work. Built for contractors and project managers.",
 };
 
 export default function RootLayout({
@@ -25,7 +38,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${outfit.variable} ${libreFranklin.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

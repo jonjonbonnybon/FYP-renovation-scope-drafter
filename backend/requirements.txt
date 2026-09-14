@@ -19,3 +19,5 @@ torch
 torchaudio
 Pillow
 pillow-heif
+transformers
+accelerate

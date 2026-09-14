@@ -15,22 +15,22 @@ def _build_scope_prompt(transcription: str, vision_analysis: str) -> str:
     """Construct the prompt that asks for structured scope-of-work items."""
     return f"""You are a professional renovation contractor drafting a scope of work.
 
-Below are spoken descriptions from a site visit and written analyses of site photographs.
-Using ALL sources provided, produce a JSON array of work items. Each item must have these fields:
-- "category": the trade category (e.g. Masonry, Painting, Electrical, Plumbing, Carpentry, Flooring, Waterproofing, Demolition, Tiling, General)
-- "description": a clear one-line description of the work to be done
-- "quantity": an estimated numeric quantity
-- "unit": the unit of measurement (e.g. sqm, sqft, lot, nos, metres)
-- "unit_cost": an estimated cost per unit in dollars (integer)
-- "total_cost": the total cost in dollars (quantity * unit_cost) (integer)
+    Below are spoken descriptions from a site visit and written analyses of site photographs.
+    Using ALL sources provided, produce a JSON array of work items. Each item must have these fields:
+    - "category": the trade category (e.g. Masonry, Painting, Electrical, Plumbing, Carpentry, Flooring, Waterproofing, Demolition, Tiling, General)
+    - "description": a clear one-line description of the work to be done
+    - "quantity": an estimated numeric quantity
+    - "unit": the unit of measurement (e.g. sqm, sqft, lot, nos, metres)
+    - "unit_cost": an estimated cost per unit in dollars (integer)
+    - "total_cost": the total cost in dollars (quantity * unit_cost) (integer)
 
-Return ONLY the JSON array, no other text.
+    Return ONLY the JSON array, no other text.
 
---- SPOKEN DESCRIPTIONS ---
-{transcription}
+    --- SPOKEN DESCRIPTIONS ---
+    {transcription}
 
---- SITE PHOTO ANALYSES ---
-{vision_analysis}
+    --- SITE PHOTO ANALYSES ---
+    {vision_analysis}
 """
 
 
@@ -50,7 +50,7 @@ def _parse_scope_items(raw_text: str) -> List[Dict[str, Any]]:
         items = json.loads(cleaned[start:end])
     except json.JSONDecodeError as e:
         logger.warning(f"Failed to parse JSON: {e}, using fallback")
-        return _fallback_scope()
+        return _fallback_scope() 
 
     # Validate and sanitise each item
     required_keys = {"category", "description", "quantity", "unit", "unit_cost", "total_cost"}
@@ -148,11 +148,15 @@ async def generate_scope(
     elif engine == "ollama":
         prompt = _build_scope_prompt(transcription, vision_analysis)
 
+        # map human-readable name to the actual ollama tag downloaded by the user
+        ollama_tag = "llama3:latest" if "llama3" in model_name.lower() else model_name
+
         payload = {
-            "model": model_name,
+            "model": ollama_tag,
             "prompt": prompt,
             "stream": False,
             "format": "json",
+            "keep_alive": 0,
         }
 
         async with httpx.AsyncClient(timeout=_TEXT_TIMEOUT) as client:

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # How long to wait for the vision analysis to complete (seconds)
 _VISION_TIMEOUT = 180.0
 
-async def analyze_image(file_path: str, engine: str, model_name: str, api_url: str) -> str:
+async def analyze_image(file_path: str, engine: str, model_name: str, api_url: str, transcription: str = "") -> str:
     """
     Analyse a site photograph and return a written description of
     visible conditions, materials, damage, and areas needing attention.
@@ -28,7 +28,7 @@ async def analyze_image(file_path: str, engine: str, model_name: str, api_url: s
                 "paint is peeling and showing minor signs of dampness.")
 
     elif engine == "ollama":
-        # Read the photo and encode it for the API. We convert it to JPEG to ensure compatibility.
+        # Read the photo and encode it for the API. It is converted to JPEG to ensure compatibility.
         img = Image.open(file_path)
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
@@ -43,15 +43,25 @@ async def analyze_image(file_path: str, engine: str, model_name: str, api_url: s
             "water damage, mould, or structural concerns. Mention the materials "
             "visible (tile, wood, plaster, etc.) and any areas that clearly need "
             "repair or replacement. Be specific and concise."
-            "Include a suggestion pricing for the works done as well."
-            "Do not exceed 80 words for each analysis."
+        )
+        
+        if transcription and transcription.strip() and transcription.strip() != "No audio transcriptions provided.":
+            prompt += f" The client has provided the following audio note about this scene: '{transcription}'. Please pay special attention to the issues mentioned in their note and confirm or expand on them based on what you see."
+            
+        prompt += (
+            " Include a suggestion pricing for the works done as well."
+            " Do not exceed 80 words for each analysis."
         )
 
+        # map human-readable name to the actual ollama tag downloaded by the user
+        ollama_tag = "llava:latest" if "llava" in model_name.lower() else model_name
+
         payload = {
-            "model": model_name,
+            "model": ollama_tag,
             "prompt": prompt,
             "images": [image_b64],
             "stream": False,
+            "keep_alive": 0,
         }
 
         async with httpx.AsyncClient(timeout=_VISION_TIMEOUT) as client:

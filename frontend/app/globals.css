@@ -1,16 +1,29 @@
+/* 
+ * Global styles + design system tokens.
+ * Using Tailwind v4's @theme inline syntax for CSS variables.
+ * ref: https://tailwindcss.com/docs/theme
+ * 
+ * Palette: dark charcoal base, warm parchment surfaces, amber accents.
+ */
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
-/* colour scheme */
+/* ── design tokens ─────────────────────────────────────
+ * everything flows from these vars; updating
+ * this block shifts the whole palette.
+ * oklch values via https://oklch.com — better perceptual uniformity
+ * than hsl for dark themes (less muddy mid-tones).
+ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-body);
+  --font-heading: var(--font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -50,48 +63,186 @@
 }
 
 :root {
-  --background: #fafaf9;
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* ── base surface: deep charcoal ── */
+  --background: #131516;
+  --foreground: #e8e2d6;
+
+  /* ── cards: slightly lifted from the base ── */
+  --card: #1c1f21;
+  --card-foreground: #e8e2d6;
+
+  /* ── popovers ── */
+  --popover: #1c1f21;
+  --popover-foreground: #e8e2d6;
+
+  /* ── primary: amber/ochre — the signature accent ── */
+  --primary: #d4a853;
+  --primary-foreground: #131516;
+
+  /* ── secondary: muted warm gray ── */
+  --secondary: #2a2d2f;
+  --secondary-foreground: #c4bda8;
+
+  /* ── muted surfaces for disabled/subtle elements ── */
+  --muted: #222527;
+  --muted-foreground: #8a8478;
+
+  /* ── accent: same amber family, slightly subdued ── */
+  --accent: #2a2520;
+  --accent-foreground: #d4a853;
+
+  /* ── danger/delete actions ── */
+  --destructive: #c0392b;
+
+  /* ── borders, inputs, focus rings ── */
+  --border: #2e3133;
+  --input: #2e3133;
+  --ring: #d4a853;
+
+  /* ── chart colors (keeping some for shadcn compat) ── */
+  --chart-1: #d4a853;
+  --chart-2: #7a8c6e;
+  --chart-3: #8a8478;
+  --chart-4: #c4bda8;
+  --chart-5: #e8e2d6;
+
+  --radius: 0.5rem;
+
+  /* ── sidebar (not currently used but shadcn wants these) ── */
+  --sidebar: #1c1f21;
+  --sidebar-foreground: #e8e2d6;
+  --sidebar-primary: #d4a853;
+  --sidebar-primary-foreground: #131516;
+  --sidebar-accent: #2a2d2f;
+  --sidebar-accent-foreground: #e8e2d6;
+  --sidebar-border: #2e3133;
+  --sidebar-ring: #d4a853;
+
+  /* ── custom tokens (not shadcn) ── */
+  --parchment: #f5f0e8;
+  --parchment-dim: #e6dfd3;
+  --amber: #d4a853;
+  --amber-hover: #c49a45;
+  --amber-dim: #b8923d;
+  --sage: #7a8c6e;
+  --sage-dim: #5e6d54;
+  --charcoal: #1c1f21;
+  --charcoal-deep: #131516;
+  --charcoal-light: #2a2d2f;
+  --warm-gray: #8a8478;
+  --warm-text: #c4bda8;
 }
 
+/* ── keyframes ─────────────────────────────────────
+ * single orchestrated page load — stagger with animation-delay
+ * in the components. css-only, no framer/motion needed.
+ * ref: https://developer.mozilla.org/en-US/docs/Web/CSS/animation-delay
+ */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* gentle pulse for loading states — less aggressive than tailwind's default */
+@keyframes gentlePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* subtle shimmer for the hero background */
+@keyframes drift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── utility classes for animation ── */
+.anim-fade-up {
+  animation: fadeSlideUp 0.5s ease-out both;
+}
+
+.anim-fade-in {
+  animation: fadeIn 0.4s ease-out both;
+}
+
+/* ── base styles ───────────────────────────────────── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body), system-ui, sans-serif;
   }
   html {
-    @apply font-sans;
+    /* smooth scroll for any in-page anchors */
+    scroll-behavior: smooth;
   }
+
+  /* 
+   * scrollbar styling — webkit only but covers chrome/safari/edge.
+   * firefox uses scrollbar-width/color (set below).
+   * ref: https://developer.mozilla.org/en-US/docs/Web/CSS/::-webkit-scrollbar
+   */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--charcoal-deep);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--charcoal-light);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--warm-gray);
+  }
+
+  /* firefox scrollbar — much simpler API */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--charcoal-light) var(--charcoal-deep);
+  }
+
+  /* headings should use the display font */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading), system-ui, sans-serif;
+  }
+}
+
+/* 
+ * uses inline svg filter.
+ * referenced from: https://css-tricks.com/snippets/css/css-noise-background/
+ */
+.noise-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.025;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  z-index: 0;
+}
+
+.noise-bg {
+  position: relative;
+}
+
+/* content sits above the noise layer */
+.noise-bg > * {
+  position: relative;
+  z-index: 1;
 }

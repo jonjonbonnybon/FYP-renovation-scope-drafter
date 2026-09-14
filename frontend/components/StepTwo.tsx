@@ -32,28 +32,42 @@ export default function StepTwo({
   return (
     <>
       {/* ───── SCOPE OF WORK TABLE (all rooms) ───── */}
-      <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-stone-400 pt-2">
+      {/* staggered reveal for the label to make it pop */}
+      <p 
+        className="anim-fade-up text-[10px] font-bold tracking-[0.2em] uppercase text-[var(--warm-gray)] pt-2"
+        style={{ animationDelay: "0.1s" }}
+      >
         Step 2 — Edit & approve scope
       </p>
 
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle>Final Scope of Work</CardTitle>
+      {/* Main container card using standard dark design tokens */}
+      <Card 
+        className="anim-fade-up bg-[var(--card)] border-[var(--border)] mt-4" 
+        style={{ animationDelay: "0.2s" }}
+      >
+        <CardHeader className="border-b border-[var(--border)]">
+          <CardTitle 
+            style={{ fontFamily: 'var(--font-heading)' }} 
+            className="text-[var(--parchment)]"
+          >
+            Final Scope of Work
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead className="w-[120px]">Category</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="w-[90px] text-center">
+              {/* Amber-tinted header */}
+              <TableRow className="bg-[var(--amber)]/10 border-b border-[var(--border)] hover:bg-[var(--amber)]/10 transition-colors">
+                <TableHead className="w-[120px] text-[var(--amber)] font-medium text-xs uppercase tracking-wider">Category</TableHead>
+                <TableHead className="text-[var(--amber)] font-medium text-xs uppercase tracking-wider">Description</TableHead>
+                <TableHead className="w-[90px] text-center text-[var(--amber)] font-medium text-xs uppercase tracking-wider">
                   Qty
                 </TableHead>
-                <TableHead className="w-[90px]">Unit</TableHead>
-                <TableHead className="w-[100px] text-right">
+                <TableHead className="w-[90px] text-[var(--amber)] font-medium text-xs uppercase tracking-wider">Unit</TableHead>
+                <TableHead className="w-[100px] text-right text-[var(--amber)] font-medium text-xs uppercase tracking-wider">
                   Unit Cost (S$)
                 </TableHead>
-                <TableHead className="w-[120px] text-right">
+                <TableHead className="w-[120px] text-right text-[var(--amber)] font-medium text-xs uppercase tracking-wider">
                   Total Cost (S$)
                 </TableHead>
               </TableRow>
@@ -61,24 +75,28 @@ export default function StepTwo({
             <TableBody>
               {doneRooms.map((room) => (
                 <Fragment key={room.id}>
-                  {/* room group header */}
-                  <TableRow className="bg-stone-100/80 hover:bg-stone-100/80">
+                  {/* Room group header visually separates different rooms */}
+                  <TableRow className="bg-[var(--charcoal-light)] hover:bg-[var(--charcoal-light)] border-b border-[var(--border)]">
                     <TableCell
                       colSpan={6}
-                      className="font-semibold text-sm text-stone-600 py-2"
+                      className="font-semibold text-sm text-[var(--parchment)] py-2"
                     >
                       {room.name}
                     </TableCell>
                   </TableRow>
 
-                  {/* editable scope rows */}
+                  {/* Editable scope rows - inline editing pattern avoids jarring popups */}
                   {room.editableResult!.scope_of_work.map(
                     (item, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell className="font-medium text-sm text-stone-700">
+                      <TableRow 
+                        key={idx}
+                        className="border-b border-[var(--border)] hover:bg-[var(--muted)]/50 transition-colors"
+                      >
+                        <TableCell className="font-medium text-sm text-[var(--warm-text)]">
                           {item.category}
                         </TableCell>
                         <TableCell>
+                          {/* styled to look inline with the cell, not like a standalone form field */}
                           <Input
                             value={item.description}
                             onChange={(e) =>
@@ -89,7 +107,7 @@ export default function StepTwo({
                                 e.target.value
                               )
                             }
-                            className="h-8 text-sm border border-stone-200 bg-white"
+                            className="h-8 text-sm border-[var(--border)] bg-[var(--muted)] text-[var(--foreground)] focus-visible:ring-1 focus-visible:ring-[var(--amber)]/50"
                           />
                         </TableCell>
                         <TableCell>
@@ -104,7 +122,7 @@ export default function StepTwo({
                                 e.target.value
                               )
                             }
-                            className="h-8 w-16 text-center text-sm border border-stone-200 bg-white mx-auto"
+                            className="h-8 w-16 text-center text-sm border-[var(--border)] bg-[var(--muted)] text-[var(--foreground)] mx-auto focus-visible:ring-1 focus-visible:ring-[var(--amber)]/50"
                           />
                         </TableCell>
                         <TableCell>
@@ -119,7 +137,7 @@ export default function StepTwo({
                                 e.target.value
                               )
                             }
-                            className="h-8 w-20 text-sm border border-stone-200 bg-white"
+                            className="h-8 w-20 text-sm border-[var(--border)] bg-[var(--muted)] text-[var(--foreground)] focus-visible:ring-1 focus-visible:ring-[var(--amber)]/50"
                           />
                         </TableCell>
                         <TableCell>
@@ -134,10 +152,10 @@ export default function StepTwo({
                                 e.target.value
                               )
                             }
-                            className="h-8 w-20 text-right text-sm border border-stone-200 bg-white ml-auto"
+                            className="h-8 w-20 text-right text-sm border-[var(--border)] bg-[var(--muted)] text-[var(--foreground)] ml-auto focus-visible:ring-1 focus-visible:ring-[var(--amber)]/50"
                           />
                         </TableCell>
-                        <TableCell className="text-right text-sm text-stone-700 font-medium">
+                        <TableCell className="text-right text-sm text-[var(--parchment)] font-medium">
                           S${item.total_cost.toLocaleString()}
                         </TableCell>
                       </TableRow>
@@ -146,15 +164,15 @@ export default function StepTwo({
                 </Fragment>
               ))}
 
-              {/* grand total row */}
-              <TableRow className="border-t-2 border-stone-300 hover:bg-transparent">
+              {/* Grand total row at the very bottom with amber accent */}
+              <TableRow className="border-t-2 border-[var(--amber)]/40 hover:bg-transparent">
                 <TableCell
                   colSpan={5}
-                  className="text-right font-semibold text-sm text-stone-600"
+                  className="text-right font-semibold text-sm text-[var(--warm-text)]"
                 >
                   Grand Total
                 </TableCell>
-                <TableCell className="text-right font-bold text-base text-stone-900">
+                <TableCell className="text-right font-bold text-base text-[var(--amber)]">
                   S${grandTotal.toLocaleString()}
                 </TableCell>
               </TableRow>

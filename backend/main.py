@@ -25,10 +25,12 @@ import pillow_heif
 
 pillow_heif.register_heif_opener()
 
+import warnings
+
+# Suppress harmless resource_tracker warnings from PyTorch MPS background threads
+warnings.filterwarnings('ignore', category=UserWarning, module='multiprocessing.resource_tracker')
+
 from config import settings
-from services.audio_service import transcribe_audio
-from services.vision_service import analyze_image
-from services.text_service import generate_scope
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -44,102 +46,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/api/transcribe-audio")
-async def transcribe_audio_endpoint(audios: List[UploadFile] = File(default=[])):
-    logger.info(f"Received request at /api/transcribe-audio with {len(audios)} files")
+@app.post("/api/process-room")
+async def process_room_endpoint(
+    audios: List[UploadFile] = File(default=[]),
+    images: List[UploadFile] = File(default=[])
+):
+    logger.info(f"received request at /api/process-room with {len(audios)} audio(s) and {len(images)} image(s)")
     aud_paths = []
+    img_paths = []
     
+    # quick check to skip dummy files or empty uploads
+    def is_valid_file(f, dummy_name):
+        return f.size > 0 and not (f.filename == dummy_name and f.size < 100)
+
+    # stash audios to temp files
     for audio in audios:
-        if audio.size == 0 or audio.filename == "rec.wav" and audio.size < 100:
+        if not is_valid_file(audio, "rec.wav"):
             continue
         aud_suffix = pathlib.Path(audio.filename).suffix if audio.filename else ".wav"
         with tempfile.NamedTemporaryFile(delete=False, suffix=aud_suffix) as aud_temp:
             shutil.copyfileobj(audio.file, aud_temp)
             aud_paths.append(aud_temp.name)
 
-    try:
-        logger.info(f"Running audio transcription sequentially via {settings.AUDIO_ENGINE}...")
-        transcriptions = []
-        for aud_path in aud_paths:
-            t = await transcribe_audio(
-                file_path=aud_path,
-                engine=settings.AUDIO_ENGINE,
-                model_name=settings.WHISPER_MODEL
-            )
-            transcriptions.append(t)
-        
-        raw_transcription = "\n\n".join([f"--- AUDIO RECORDING {i+1} ---\n{t}" for i, t in enumerate(transcriptions)])
-        if not raw_transcription:
-            raw_transcription = "No audio transcriptions provided."
-            
-        return {"raw_transcription": raw_transcription}
-
-    except Exception as e:
-        logger.error(f"Error in transcription: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        for p in aud_paths:
-            if os.path.exists(p):
-                os.remove(p)
-
-@app.post("/api/analyze-vision")
-async def analyze_vision_endpoint(images: List[UploadFile] = File(default=[])):
-    logger.info(f"Received request at /api/analyze-vision with {len(images)} files")
-    img_paths = []
-    
+    # stash images to temp files
     for image in images:
-        if image.size == 0 or image.filename == "photo.png" and image.size < 100:
+        if not is_valid_file(image, "photo.png"):
             continue
         img_suffix = pathlib.Path(image.filename).suffix if image.filename else ".jpg"
         with tempfile.NamedTemporaryFile(delete=False, suffix=img_suffix) as img_temp:
             shutil.copyfileobj(image.file, img_temp)
             img_paths.append(img_temp.name)
 
-    try:
-        logger.info(f"Running visual analysis sequentially via {settings.VISION_ENGINE}...")
-        visions = []
-        for img_path in img_paths:
-            v = await analyze_image(
-                file_path=img_path,
-                engine=settings.VISION_ENGINE,
-                model_name=settings.OLLAMA_VISION_MODEL,
-                api_url=settings.OLLAMA_API_URL
-            )
-            visions.append(v)
-            
-        raw_vision = "\n\n".join([f"--- PHOTO ANALYSIS {i+1} ---\n{v}" for i, v in enumerate(visions)])
-        if not raw_vision:
-            raw_vision = "No visual analyses provided."
-            
-        return {"raw_vision": raw_vision}
-
-    except Exception as e:
-        logger.error(f"Error in vision analysis: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        for p in img_paths:
-            if os.path.exists(p):
-                os.remove(p)
-
-class SynthesizeRequest(BaseModel):
-    raw_transcription: str
-    raw_vision: str
-
-@app.post("/api/synthesize-scope")
-async def synthesize_scope_endpoint(req: SynthesizeRequest):
-    logger.info("Received request at /api/synthesize-scope")
-    try:
-        scope_items = await generate_scope(
-            transcription=req.raw_transcription,
-            vision_analysis=req.raw_vision,
-            engine=settings.TEXT_ENGINE,
-            model_name=settings.OLLAMA_TEXT_MODEL,
-            api_url=settings.OLLAMA_API_URL
-        )
-        return {"scope_of_work": scope_items}
-    except Exception as e:
-        logger.error(f"Error in text synthesis: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Text generation failed")
+    # wrap the pipeline in a generator to clean up temp files once the stream is done
+    async def event_generator():
+        try:
+            from services.process_service import process_room_pipeline
+            async for event in process_room_pipeline(aud_paths, img_paths):
+                yield event
+        finally:
+            # always clean up temp files
+            for p in aud_paths + img_paths:
+                if os.path.exists(p):
+                    os.remove(p)
+                    
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @app.post("/api/convert-heic")

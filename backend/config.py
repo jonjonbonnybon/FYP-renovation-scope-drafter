@@ -12,9 +12,9 @@ class Settings:
     TEXT_ENGINE: str = os.getenv("TEXT_ENGINE", "ollama")   # Options: "mock", "ollama"
     
     # Model parameters
-    WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "medium")
-    OLLAMA_VISION_MODEL: str = os.getenv("OLLAMA_VISION_MODEL", "llava")
-    OLLAMA_TEXT_MODEL: str = os.getenv("OLLAMA_TEXT_MODEL", "llama3")
+    WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "distil-whisper-medium.en")
+    OLLAMA_VISION_MODEL: str = os.getenv("OLLAMA_VISION_MODEL", "llava:1.5")
+    OLLAMA_TEXT_MODEL: str = os.getenv("OLLAMA_TEXT_MODEL", "llama3:instruct")
     OLLAMA_API_URL: str = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
 
 settings = Settings()
